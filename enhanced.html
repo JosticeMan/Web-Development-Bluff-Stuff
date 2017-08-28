@@ -1,0 +1,716 @@
+<!DOCTYPE html>
+<!-- Creator: Justin Yau  -->
+<html>
+
+	<head>
+		<title> </title>
+		
+		<style> 
+		
+			table#menu 
+			{
+				width: 100%;
+				height: 200px;
+				text-align: center;
+				font: bold 32px calibri;
+			}
+			
+			td#box
+			{
+				border: solid 5px black;
+			}
+			
+			span.cFont
+			{
+				font: bold 24px calibri;
+			}
+			
+			div
+			{
+				text-align: justify;
+			}
+			
+			div#opening, div#themenu
+			{
+				text-align: center;
+			}
+			
+			div#themenu
+			{
+				width: 49%;
+				display: none;
+				vertical-align: top;
+			}
+			
+			table#gameboard 
+			{
+				width: 49%;
+				display: none;
+			}
+
+			table#gameboard, table#gameboard td, table#gameboard th
+			{
+				border: solid 2px black;
+				border-collapse: collapse;
+			}
+			
+			img
+			{
+				padding: 3px;
+			}
+			
+		</style>
+
+		<script src = "javascript/cardengine.js"> </script>
+		<script src = "javascript/utilities.js"> </script>
+		<script>
+		
+			function initialize() 
+			{
+				getElements();
+				createVariables();
+				setup();
+			}
+			
+			function getElements()
+			{
+				//Input Values
+				jPlayerName = document.getElementById("playername");
+				jNumOfPlayers = document.getElementById("numberofplayers");	
+				jInput1 = document.getElementById("numOfCards");
+				//Opening Div
+				jOpening = document.getElementById("opening");
+				//The Game Board Table
+				jBoard = document.getElementById("gameboard");
+				//The Game Menu
+				jMenu = document.getElementById("themenu");
+				//The Alerts
+				jAlert = document.getElementById("alert");
+				jPile = document.getElementById("pile");
+				//Buttons
+				jPSB = document.getElementById("psb");
+				jBluff = document.getElementById("bluff");
+				jNextTurn = document.getElementById("nextturn");
+				jRestart = document.getElementById("restartbut");
+			}
+			
+			function createVariables()
+			{
+				//Tracks Player Names
+				playerName = null;
+				//Tracks Number of Computer Controlled Players
+				numberOfComputers = 0;
+				//Computer Names
+				computerNames = ["Veteran", "Trickster", "Amateur", "Master", "Noob"];
+				//Generates a standard deck and shuffles it
+				theDeck = shuffleDeck(generateStandardDeck());
+				//Keeps an array of players so I can access them later on
+				thePlayers = [];
+				//Rows
+				theRows = [];
+				//Cells
+				theCells = [];
+				//Selected
+				selected = [];
+				//Selected Indexes
+				selectedIndexes = [];
+				//Keep track of who is going 
+				playerTurn = 0;
+				//Keeps track of the cards in the pile
+				pileCards = [];
+				//Allows to make disabling buttons easier
+				DISABLED = true;
+				ENABLED = false;
+				//Current Cards
+				currentCard = ACE;
+				//Keeps track of first turn
+				notFirstTurn = false;
+				//Keeps track of what amount of cards are in the pile
+				cardPutInPile = 0;
+			}
+			
+			function restart()
+			{
+				initialize();
+				startGame();
+			}
+			
+			function startGame()
+			{
+				//Stores the settings the players wanted
+				playerName = jPlayerName.value;
+				numberOfComputers = jNumOfPlayers.value;
+				//Hides the opening menu
+				jOpening.style.display = "none";
+				//Makes the players with the specified options
+				createPlayers();
+				dealTheCards();
+				displayBoard();
+				pickRandomPlayer();
+				playTurn();
+			}
+			
+			function setup()
+			{
+				//Disables menu functions till it's your turn
+				disableAllMenu();
+				jRestart.disabled = true;
+			}
+			
+			function PLAYER(theName)
+			{
+				//Creates new player with specified name
+				if(theName == "")
+				{
+					this.name = "No Name";
+				}
+				else
+				{
+					this.name = theName;
+				}
+				//Keeps track of the cards the player has
+				this.cards = [];
+			}
+			
+			function createPlayers()
+			{
+				//Creates the player with the name
+				var thePlayer = new PLAYER(playerName);
+				thePlayers.push(thePlayer);
+				for(var i = 0; i < numberOfComputers; i++)
+				{
+					//Gets random name from the list and takes it out and makes a new computer player out of it
+					var thePlayer = new PLAYER(computerNames.splice(getRandomInteger(0, computerNames.length - 1), 1)[0]);
+					thePlayers.push(thePlayer);
+				}
+			}
+			
+			function dealTheCards()
+			{
+				while(theDeck.length != 0)
+				{
+					for(var t = 0; t < thePlayers.length; t++)
+					{
+						//If deck is not empty, keep dealing cards
+						if(theDeck.length != 0)
+						{
+							thePlayers[t].cards.push(dealCard(theDeck));
+						}
+					}
+				}
+			}
+			
+			function displayBoard()
+			{
+				selected = [];
+				selectedIndexes = [];
+				//This is for the player
+				for(var i = 0; i < thePlayers[0].cards.length; i++)
+				{
+					selected.push(false);
+				}
+				jBoard.style.display = "inline-block";
+				jMenu.style.display = "inline-block";
+				if(jBoard.rows.length != 1)
+				{
+					while(jBoard.rows.length != 1)
+					{
+						jBoard.deleteRow(-1);
+					}
+				}
+				for(var i = 0; i < thePlayers.length; i++)
+				{
+					//Makes a row for each player
+					theRows.push(jBoard.insertRow(-1));
+					//Display names
+					theCells.push(theRows[theRows.length - 1].insertCell());
+					theCells[theCells.length - 1].innerHTML = thePlayers[i].name;
+					//Display cards 
+					theCells.push(theRows[theRows.length - 1].insertCell());
+					var cardIndex = 0;
+					for(var t = 0; t < thePlayers[i].cards.length; t++)
+					{
+						if(i == 0)
+						{
+							theCells[theCells.length - 1].innerHTML += "<img src = 'cardimages/" + thePlayers[i].cards[t].cardImg + "' onclick = 'selectUnselect(this ," + cardIndex + ")' />";
+						}
+						else
+						{
+							theCells[theCells.length - 1].innerHTML += "<img src = 'cardimages/back-blue-75-1.png' />";
+							//theCells[theCells.length - 1].innerHTML += "<img src = 'cardimages/" + thePlayers[i].cards[t].cardImg + "' onclick = 'selectUnselect(this ," + cardIndex + ")' />";
+						}
+						cardIndex++;
+					}
+					//Display count
+					theCells.push(theRows[theRows.length - 1].insertCell());
+					theCells[theCells.length - 1].innerHTML = thePlayers[i].cards.length + " cards in hand";
+				}
+			}
+			
+			function pickRandomPlayer()
+			{
+				//Picks a random player 
+				playerTurn = getRandomInteger(0, thePlayers.length - 1);
+			}
+			
+			function selectUnselect(theImg, theNumber)
+			{
+				//Toggle
+				selected[theNumber] = !selected[theNumber]; 
+				//If selected, make it have border
+				if(selected[theNumber])
+				{
+					selectedIndexes.push(theNumber);
+					theImg.style.border = "solid 2px green";
+				}
+				else
+				{
+					//Have no border if not selected
+					selectedIndexes.splice(selectedIndexes.indexOf(theNumber), 1);
+					theImg.style.border = "none";
+				}
+			}
+			
+			function submit()
+			{
+				if(selectedIndexes.length <= 4 && selectedIndexes.length > 0)
+				{
+					if(jInput1.value != selectedIndexes.length)
+					{
+						jAlert.innerHTML = "Please select the same amount of cards that you specified!";
+					}
+					else
+					{
+						cardPutInPile = 0;
+						for(var i = 0; i < selectedIndexes.length; i++)
+						{
+							selected.splice(selectedIndexes[i], 1);
+							pileCards.push(thePlayers[0].cards[selectedIndexes[i]]);
+							cardPutInPile++;
+							thePlayers[0].cards.splice(selectedIndexes[i], 1);
+							var theIndex = selectedIndexes[i];
+							//Update indexes
+							for(var t = 0; t < selectedIndexes.length; t++)
+							{
+								if(selectedIndexes[t] > theIndex)
+								{
+									selectedIndexes[t]--;
+								}
+							}
+						}
+						displayBoard();
+						updateCardCount();
+						jAlert.innerHTML = "You claimed to have put " + jInput1.value + " "  +  currentCard + "(s) into the pile!";
+						jPSB.disabled = true;
+						//Reset check variables
+						theBluff = false;
+						//Loop for bluff
+						for(var i = 1; i < thePlayers.length; i++)
+						{
+							if(!theBluff)
+							{
+								computerCallBluff(i);
+							}
+						}
+						if(didWeWin() != "No")
+						{
+							setTimeout( function() {jAlert.innerHTML = didWeWin() + " won the game!" }, 1000);
+							jPile.innerHTML = "";
+							disableAllMenu();
+							jRestart.disabled = false;
+						}
+						else
+						{
+							//Sets delay to allow player to acknowledge their choice and allow computers to call bluff
+							setTimeout(playTurn, 2000);
+						}
+					}
+				}
+				else
+				{
+					jAlert.innerHTML = "Please select no more than 4 cards and more than 0 cards!";
+				}
+			}
+			
+			function computerCallBluff(currentComputer)
+			{
+				/*
+					The Noob: 
+					- Always calls bluff if he has the card in hand
+					- Puts a random card into the pile 
+					
+					The Master:
+					- Memorizes the cards in pile and if the amount of cards in that pile and his hand and the amount put in by 
+					the player Cards don't match, he'll call bluff
+					- If he doesn't have the card in hand, he'll put 1 random card down to reduce chances of being caught.					
+				*/
+				//Noob's AI
+				if(thePlayers[currentComputer].name == "Noob")
+				{
+					if(indexesOfCard(currentCard, currentComputer).length >= 1)
+					{
+						bluff(currentComputer);
+					}
+				}
+				else
+				{
+					if(thePlayers[currentComputer].name == "Master")
+					{
+						if(indexesOfCard(currentCard, currentComputer).length + cardPutInPile + amountOfCurrentCardInPile() > 4)
+						{
+							bluff(currentComputer);
+						}
+					}
+					else
+					{
+						var theNum = getRandomInteger(1, 100);
+						if(theNum == 1 || theNum == 9 || theNum == 23)
+						{
+							bluff(currentComputer);
+						}
+						else
+						{
+							if(indexesOfCard(currentCard, currentComputer).length + cardPutInPile > 4)
+							{
+								bluff(currentComputer);
+							}
+						}
+					}
+				}
+			}
+			
+			function amountOfCurrentCardInPile()
+			{
+				var cardAmount = 0;
+				for(var i = 0; i < pileCards.length; i++)
+				{	
+					if(pileCards[i].rank == currentCard)
+					{
+						cardAmount++;
+					}
+				}
+				return cardAmount;
+			}
+			
+			function enableMenu()
+			{
+				jPSB.disabled = ENABLED;
+				jBluff.disabled = DISABLED;
+				jNextTurn.disabled = DISABLED;
+			}
+			
+			function disableMenu()
+			{
+				jPSB.disabled = DISABLED;
+				jBluff.disabled = ENABLED;
+				jNextTurn.disabled = ENABLED;
+			}
+			
+			function disableAllMenu()
+			{
+				jPSB.disabled = DISABLED;
+				jBluff.disabled = DISABLED;
+				jNextTurn.disabled = DISABLED;
+			}
+			
+			function playTurn(isNextTurn = true)
+			{
+				//Checks if it's the next turn and allows the next player to go 
+				if(isNextTurn && notFirstTurn)
+				{
+					playerTurn++;
+					currentCard++;
+					//Does not allow player turn to go lot a turn to a non existant player
+					if(playerTurn > thePlayers.length - 1)
+					{
+						playerTurn = 0;
+					}
+					//Does not allow current card to go beyond KING and makes it go back to ACE
+					if(currentCard > 13)
+					{
+						currentCard = ACE;
+					}
+				}
+				if(!notFirstTurn)
+				{
+					notFirstTurn = true;
+				}
+				if(playerTurn == 0)
+				{
+					//Announces that it's your turn
+					jAlert.innerHTML = "It's your turn! Please put " + currentCard + "(s) into the pile!";
+					enableMenu();
+				}
+				else
+				{
+					//Announces whose computer turn it is
+					jAlert.innerHTML = "It's " + thePlayers[playerTurn].name + "'s turn!";
+					disableAllMenu();
+					setTimeout(makeComputerChoice , 1000);
+					//Reset check variables
+					index = 1;
+					setTimeout( disableMenu, 2102);
+					//Loop for bluff
+					setTimeout(bluffThroughComps , 2000);
+
+				}
+				setTimeout( displayBoard , 1000);
+				setTimeout( updateCardCount , 1000);
+				setTimeout( displayBoard , 2101);
+				setTimeout( updateCardCount , 2101);
+				setTimeout( compWin, 3000);
+			}
+			
+			function compWin()
+			{
+				if(didWeWin() != "No")
+				{
+					jAlert.innerHTML = didWeWin() + " won the game!";
+					jPile.innerHTML = "";
+					jRestart.disabled = false;
+					disableAllMenu();
+				}
+			}
+			
+			function bluffThroughComps()
+			{
+				theBluff = false;
+				while(!theBluff && index < thePlayers.length)
+				{
+					theBluff = false;
+					if(index != playerTurn)
+					{
+						computerCallBluff(index);
+					}
+					index++;
+				}
+			}
+			
+			function didWeWin()
+			{
+				for(var i = 0; i < thePlayers.length; i++)
+				{	
+					if(thePlayers[i].cards.length == 0)
+					{
+						return thePlayers[i].name;
+					}
+				}
+				return "No";
+			}
+			
+			function makeComputerChoice()
+			{
+				/*
+					The Noob: 
+					- Always calls bluff if he has the card in hand
+					- Puts a random card into the pile 
+					
+					The Master:
+					- Memorizes the cards in pile and if the amount of cards in that pile and his hand and the amount put in by 
+					the player Cards don't match, he'll call bluff
+					- If he doesn't have the card in hand, he'll put 1 random card down to reduce chances of being caught.					
+				*/
+				var theIndexes = indexesOfCard(currentCard, playerTurn);
+				cardPutInPile = 0;
+				//Noob's AI and Master's AI
+				if(thePlayers[playerTurn].name == "Noob" || thePlayers[playerTurn].name == "Master" && theIndexes.length == 0)
+				{
+					pileCards.push(thePlayers[playerTurn].cards.splice(getRandomInteger(0, thePlayers[playerTurn].cards.length - 1), 1)[0]);
+					cardPutInPile++;
+				}
+				else
+				{
+					//Other computer AI
+					if(theIndexes.length == 0)
+					{
+						if(thePlayers[playerTurn].cards.length > 25 && getRandomInteger(1, 100) == getRandomInteger(1, 100))
+						{
+							pileCards.push(thePlayers[playerTurn].cards.splice(getRandomInteger(0, thePlayers[playerTurn].cards.length - 1), 1)[0]);
+							cardPutInPile++;
+						}
+						var mostFreq = mostCards();
+						var theMost = indexesOfCard(mostFreq, playerTurn);
+						for(var i = 0; i < theMost.length ; i++)
+						{
+							pileCards.push(thePlayers[playerTurn].cards[theMost[i]]);
+							thePlayers[playerTurn].cards.splice(theMost[i], 1);
+							for(var p = i; p < theMost.length; p++)
+							{
+								theMost[p] = theMost[p] - 1;
+							}
+							//alert(theMost[i]);
+							cardPutInPile++;
+						}
+					}
+					else
+					{
+						//If the computer does have the card and doesn't need to bluff
+						for(var i = 0; i < theIndexes.length; i++)
+						{
+							pileCards.push(thePlayers[playerTurn].cards[theIndexes[i]]);
+							thePlayers[playerTurn].cards.splice(theIndexes[i], 1);
+							var theIndex = theIndexes[i];
+							//Update indexes
+							for(var t = 0; t < theIndexes.length; t++)
+							{
+								if(theIndexes[t] > theIndex)
+								{
+									theIndexes[t] = theIndexes[t] - 1;
+								}
+							}
+							cardPutInPile++;
+						}
+					}
+				}
+				jAlert.innerHTML = thePlayers[playerTurn].name + " decided to put " + cardPutInPile + " " + currentCard + "(s) into the pile!";
+			}
+			
+			//Returns array of the indexes that match the rank
+			function indexesOfCard(theRank, zePlayer)
+			{
+				var indexes = [];
+				for(var i = 0; i < thePlayers[zePlayer].cards.length; i++)
+				{
+					if(thePlayers[zePlayer].cards[i].rank == theRank)
+					{
+						indexes.push(i);
+					}
+				}
+				return indexes;
+			}
+			
+			//Returns the highest rank
+			function mostCards()
+			{
+				//This is an array that represents the count that each rank appears
+				var playerCards = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+				for(var i = 0; i < thePlayers[playerTurn].cards.length; i++)
+				{
+					//I increment the appropriate rank in the array by 1
+					playerCards[thePlayers[playerTurn].cards[i].rank - 1]++;
+				}
+				var max = 0;
+				for(var t = 0; t < playerCards.length; t++)
+				{
+					//If the current max is beaten by the the quantity that a specific rank appears, store that rank
+					if(playerCards[t] > max)
+					{
+						max = t;
+					}
+				}
+				return max + 1;
+				
+			}
+			
+			function updateCardCount()
+			{
+				jPile.innerHTML = "There are " + pileCards.length + " cards in the pile!";
+			}
+			
+			function bluff(thePlayer)
+			{
+				var isItBluff = isBluff();
+				if(isItBluff)
+				{
+					addPileToPlayer(playerTurn);
+					jAlert.innerHTML = thePlayers[thePlayer].name + " called bluff! They were right! Cards have been added to the other player!";
+					theBluff = true;
+				}
+				else
+				{
+					addPileToPlayer(thePlayer);
+					jAlert.innerHTML = thePlayers[thePlayer].name + " called bluff! They were wrong! Cards have been added to them!";
+				}
+				pileCards = [];
+				//Updates board
+				displayBoard();
+				updateCardCount();
+			}
+			
+			function isBluff()
+			{
+				var lastIndex = pileCards.length - 1;
+				var repeatTimes = cardPutInPile;
+				for(var v = 0; v < repeatTimes; v++)
+				{
+					var ourIndex = lastIndex - v;
+					if(pileCards[ourIndex].rank != currentCard)
+					{
+						return true;
+					}
+				}
+				return false;
+			}
+			
+			//Adds the pile of cards to player
+			function addPileToPlayer(ourPlayer)
+			{
+				for(var i = 0; i < pileCards.length; i++)
+				{
+					thePlayers[ourPlayer].cards.push(pileCards[i]);
+				}
+			}
+			
+		</script>
+	</head>
+	
+	<body onload = "initialize();">
+	
+		<table id = "menu"> 
+			<tr>
+				<td> <img src = "images/cardpile.jpg" /> </td>
+				<td id = "box"> <span> Bluff Stuff (BS) </span> </td>
+				<td> <img src = "images/cardpile.jpg" /> </td>
+			</tr>
+		</table>
+		
+		<hr />
+		
+		<div id = "info">
+			<span class = "cFont"> Game Rules: The game of Bluff Stuff begins by dealing out the entire deck to all of the players.  The player with the Ace of Spades begins play by laying it face down on the table.  That player may throw other cards with it.  Play continues in rank order so that the next player must throw down 2s and the next player has to throw down 3s.  A player needs to say how many of what card (s)he is throwing.  The player can bluff, but other players have the option of calling that bluff.  If the bluff is called and the thrower is bluffing (s)he collects the whole pile.  Otherwise, the caller collects the pile.  The object is to get rid of all of your cards. </span>
+		</div>
+		
+		<hr />
+		
+		<div id = "opening">
+			<span class = "cFont"> Please input some information below before we start the game </span> <br />
+			<input id = "playername" placeholder = "Insert your name here"> </input>
+			<select id = "numberofplayers"> 
+				<option value = "2"> 2 Computer Controlled Players </option>
+				<option value = "3"> 3 Computer Controlled Players </option>
+				<option value = "4"> 4 Computer Controlled Players </option>
+			</select> <br />
+			<button onclick = "startGame();"> Start The Game </button>
+		</div>
+		
+		<table id = "gameboard">
+			<tr> 
+				<th class = "three"> Player Names </th>
+				<th class = "three"> Player Cards </th>
+				<th class = "three"> Cards in hand </th>
+			</tr>
+		</table>
+		
+		<div id = "themenu">
+			<span class = "cFont"> Alert: </span> <br /> 
+			<span id = "alert"> Nothing to say yet... </span> <br />
+			<span id = "pile"> 0 cards in the pile </span> <br /> <br /> 
+			<span class = "cFont"> How many did you put in the pile? </span> <br />
+			<select id = "numOfCards"> 
+				<option value = "1"> 1 </option>
+				<option value = "2"> 2 </option>
+				<option value = "3"> 3 </option>
+				<option value = "4"> 4 </option>
+			</select> 
+			<button onclick = "submit();" id = "psb"> Put selected cards in pile </button> <br />
+			<button onclick = "bluff(0);" id = "bluff"> Bluff! </button> <br />
+			<button onclick = "playTurn();" id = "nextturn"> I'm ready for the next turn </button> <br />
+			<button onclick = "restart();" id = "restartbut"> Restart </button>
+		</div>
+		
+		<hr />
+		
+	</body>
+	
+</html>
+
